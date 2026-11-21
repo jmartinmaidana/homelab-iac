@@ -1,0 +1,11 @@
+# Archivos locales y estado sensible de Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+
+# Configuración local de Ansible (se comparten únicamente los archivos .example)
+ansible/group_vars/all.yml
+ansible/inventory.ini
+*.retry

@@ -1,0 +1,4 @@
+# Copiar este archivo a terraform.tfvars y completar con la IP de Tailscale de tu servidor
+jellyfin_server_tailscale_ip = "100.x.x.x"
+client_tag                   = "tag:jellyfin-app"
+jellyfin_port                = "8096"

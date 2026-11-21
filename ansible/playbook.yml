@@ -1,0 +1,100 @@
+---
+- name: Asegurar configuración del servidor multimedia Jellyfin en Arch / CachyOS
+  hosts: servidor_multimedia
+  become: true
+
+  vars_files:
+    - secrets.yml
+
+  tasks:
+    - name: 1. Verificar paquetes base instalados
+      community.general.pacman:
+        name:
+          - jellyfin-server
+          - jellyfin-web
+          - tailscale
+          - acl
+          - curl
+        state: present
+
+    - name: 2. Asegurar límite de inotify para escaneo en tiempo real
+      ansible.posix.sysctl:
+        name: fs.inotify.max_user_watches
+        value: '524288'
+        sysctl_file: /etc/sysctl.d/40-max-user-watches.conf
+        state: present
+        reload: true
+
+    - name: 3. Asegurar permiso de paso (+x) en carpetas padre
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: '0711'
+      loop: "{{ carpetas_padre }}"
+
+    - name: 4. Asegurar grupo jellyfin y bit setgid (2775) en las bibliotecas
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ usuario }}"
+        group: jellyfin
+        mode: '2775'
+        recurse: true
+      loop: "{{ directorios_multimedia }}"
+
+    - name: 5. Asegurar permisos ACL explícitos (rwx) actuales
+      ansible.posix.acl:
+        path: "{{ item }}"
+        entity: jellyfin
+        etype: user
+        permissions: rwx
+        recursive: true
+        state: present
+      loop: "{{ directorios_multimedia }}"
+
+    - name: 6. Asegurar permisos ACL por defecto (herencia para archivos nuevos)
+      ansible.posix.acl:
+        path: "{{ item }}"
+        entity: jellyfin
+        etype: user
+        permissions: rwx
+        default: true
+        recursive: true
+        state: present
+      loop: "{{ directorios_multimedia }}"
+
+    - name: 7. Asegurar existencia del directorio de scripts locales del usuario
+      ansible.builtin.file:
+        path: "/home/{{ usuario }}/.local/bin"
+        state: directory
+        owner: "{{ usuario }}"
+        group: "{{ usuario }}"
+        mode: '0755'
+
+    - name: 8. Desplegar script de escaneo automático para qBittorrent
+      ansible.builtin.copy:
+        dest: "/home/{{ usuario }}/.local/bin/jellyfin-scan.sh"
+        owner: "{{ usuario }}"
+        group: "{{ usuario }}"
+        mode: '0755'
+        content: |
+          #!/usr/bin/env bash
+          CONTENT_PATH="$1"
+          API_KEY="{{ jellyfin_api_key }}"
+          JELLYFIN_URL="http://127.0.0.1:{{ jellyfin_puerto }}"
+
+          if [ -e "$CONTENT_PATH" ]; then
+              chgrp -R jellyfin "$CONTENT_PATH" 2>/dev/null
+              chmod -R 775 "$CONTENT_PATH" 2>/dev/null
+          fi
+
+          curl -s -X POST "${JELLYFIN_URL}/Library/Refresh" \
+               -H "X-Emby-Token: ${API_KEY}"
+
+    - name: 9. Verificar que Jellyfin y Tailscale estén habilitados y activos
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - jellyfin
+        - tailscaled

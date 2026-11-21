@@ -1,0 +1,13 @@
+---
+# Copiar este archivo a group_vars/all.yml y adaptar las rutas a tu sistema
+usuario: tu_usuario
+jellyfin_puerto: 8096
+
+# Carpetas intermedias desde /home/<usuario> hasta tus bibliotecas que requieren permiso de paso (0711)
+carpetas_padre:
+  - "/home/tu_usuario"
+
+# Rutas absolutas donde almacenarás películas y series
+directorios_multimedia:
+  - "/home/tu_usuario/Peliculas"
+  - "/home/tu_usuario/Series"
